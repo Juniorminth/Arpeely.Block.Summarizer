@@ -1,3 +1,4 @@
+import logging
 import re
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -8,6 +9,8 @@ from langchain_openai import ChatOpenAI
 from langgraph.constants import START
 from langgraph.graph import StateGraph
 from langgraph.graph.state import CompiledStateGraph
+
+logger = logging.getLogger("arpeely.agent")
 
 
 class SummarizeState(TypedDict):
@@ -46,15 +49,25 @@ class SummarizerAgent(ABC):
 
 	def _needs_sanitization(self, text: str) -> bool:
 		if self._URL_RE.search(text):
+			logger.info("Sanitization triggered — reason=url_detected")
 			return True
-		return bool(self._DIRTY_CHARS_RE.search(text))
+		match = self._DIRTY_CHARS_RE.search(text)
+		if match:
+			# Collect up to 5 unique offending characters for the log
+			dirty = set(self._DIRTY_CHARS_RE.findall(text))
+			sample = list(dirty)[:5]
+			logger.info("Sanitization triggered — reason=dirty_chars, chars=%r", sample)
+			return True
+		return False
 
 	def _decide_sanitization(self, state: SummarizeState):
 		given_text = state.get("text_to_summarize", None)
 		if given_text is None:
 			return NodeNames.SUMMARIZING
 		should_sanitize = self._needs_sanitization(given_text)
-		return NodeNames.SANITIZING if should_sanitize else NodeNames.SUMMARIZING
+		route = NodeNames.SANITIZING if should_sanitize else NodeNames.SUMMARIZING
+		logger.info("Routing decision — sanitize=%s, text_length=%d", should_sanitize, len(given_text))
+		return route
 		
 	
 	

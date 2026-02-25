@@ -39,6 +39,7 @@ LangGraph StateGraph          # sanitize (optional) → summarize
 - **Output cap** — `ChatOpenAI` is initialised with `max_tokens=400` to prevent over-generation and reduce tail latency.
 - **Request timeout** — `SummarizeWithAgent` wraps the agent call with `asyncio.wait_for` using a configurable timeout (default 30 s, set via `LLM_TIMEOUT_SECONDS`). If the LLM hangs, the request fails gracefully with a 502 instead of spinning indefinitely.
 - **Unicode-aware sanitization** — the dirty-text regex uses `\w` (Python 3 Unicode-aware), so accented characters from any script (French, German, Spanish, etc.) are treated as clean text and skip the sanitization LLM call.
+- **Structured logging** — uses Python's stdlib `logging` with a consistent `timestamp | level | module | message` format. Logs are emitted at key boundaries: startup config, request received/completed, sanitization routing decisions, timeouts, and errors. Configured once at startup via `infrastructure/logging_config.py` under the `arpeely.*` namespace to avoid polluting third-party loggers.
 
 ### Project Structure
 
@@ -51,7 +52,8 @@ server/app/
 │   └── summarize_controller.py      # POST /api/summarize/ endpoint
 ├── infrastructure/
 │   ├── config.py                    # Settings (reads from .env)
-│   └── dependencies.py              # DI wiring — reads service from app.state
+│   ├── dependencies.py              # DI wiring — reads service from app.state
+│   └── logging_config.py            # Structured logging setup
 ├── services/
 │   └── summarizer/
 │       ├── summarizer_service.py    # SummarizerService ABC + SummarizeWithAgent

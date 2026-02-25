@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -7,15 +8,22 @@ from starlette.responses import JSONResponse
 
 from server.app.api.summarize_controller import router as summarizer_router
 from server.app.infrastructure.config import settings
+from server.app.infrastructure.logging_config import setup_logging
 from server.app.services.summarizer.agent.summarizer_agent import SummarizerAgentFactory
 from server.app.services.summarizer.summarizer_service import SummarizeWithAgent
+
+logger = logging.getLogger("arpeely.main")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    setup_logging()
+    logger.info("Starting up — model=%s, timeout=%ss", settings.openai_model, settings.llm_timeout_seconds)
     agent = SummarizerAgentFactory.create_agent(settings.openai_model)
     app.state.summarizer_service = SummarizeWithAgent(agent, timeout=settings.llm_timeout_seconds)
+    logger.info("Service ready")
     yield
+    logger.info("Shutting down")
 
 
 app = FastAPI(

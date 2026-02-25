@@ -1,7 +1,10 @@
 import asyncio
+import logging
 from abc import ABC, abstractmethod
 
 from server.app.services.summarizer.agent.summarizer_agent import SummarizerAgent
+
+logger = logging.getLogger("arpeely.service")
 
 
 class SummarizerService(ABC):
@@ -22,4 +25,5 @@ class SummarizeWithAgent(SummarizerService):
                 timeout=self._timeout,
             )
         except asyncio.TimeoutError:
+            logger.error("LLM timed out after %ss", self._timeout)
             raise RuntimeError(f"Summarization timed out after {self._timeout}s")
