@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 
 from server.app.services.summarizer.agent.summarizer_agent import SummarizerAgent
@@ -10,8 +11,15 @@ class SummarizerService(ABC):
 
 
 class SummarizeWithAgent(SummarizerService):
-    def __init__(self, agent: SummarizerAgent):
+    def __init__(self, agent: SummarizerAgent, timeout: float = 30.0):
         self._agent = agent
+        self._timeout = timeout
 
     async def summarize(self, text: str) -> str:
-        return await self._agent.summarize_text(text)
+        try:
+            return await asyncio.wait_for(
+                self._agent.summarize_text(text),
+                timeout=self._timeout,
+            )
+        except asyncio.TimeoutError:
+            raise RuntimeError(f"Summarization timed out after {self._timeout}s")

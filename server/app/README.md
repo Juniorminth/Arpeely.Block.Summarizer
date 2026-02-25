@@ -2,6 +2,8 @@
 
 A FastAPI backend that receives web page content and returns a summarized version using a LangGraph-powered LLM agent.
 
+> **Input:** the Chrome extension automatically truncates text to **6 000 chars** before sending. Raw `POST` callers should do the same to keep latency and token costs predictable.
+
 ---
 
 ## Architecture
@@ -31,9 +33,12 @@ LangGraph StateGraph          # sanitize (optional) → summarize
 ### Key Design Decisions
 
 - **Separation of concerns** — the controller only knows about `SummarizerService`. It has no knowledge of LangGraph, OpenAI, or how summarization works internally.
-- **Dependency Injection** — FastAPI's `Depends` is used to inject the service. The concrete implementation is wired once in `infrastructure/dependencies.py` via `lru_cache`, so the agent and its compiled graph are built exactly once at startup.
+- **Singleton service** — a `lifespan` context manager in `main.py` builds the agent and service exactly once at startup and stores them on `app.state`. The dependency in `infrastructure/dependencies.py` reads from `request.app.state`, ensuring every request reuses the same compiled LangGraph and LLM client.
 - **Swappable providers** — adding a new LLM provider (e.g. Anthropic) only requires a new `SummarizerAgent` subclass and a one-line change in `_MODEL_REGISTRY`.
-- **LangGraph pipeline** — the agent runs a two-step graph: an optional sanitization node (strips HTML/markup) followed by a summarization node. Routing is decided at runtime based on whether the input text contains non-standard characters.
+- **LangGraph pipeline** — the agent runs a two-step graph: an optional sanitization node (strips HTML/markup) followed by a summarization node. Routing is decided at runtime based on whether the input text contains non-standard characters, avoiding a redundant LLM call for clean text.
+- **Output cap** — `ChatOpenAI` is initialised with `max_tokens=400` to prevent over-generation and reduce tail latency.
+- **Request timeout** — `SummarizeWithAgent` wraps the agent call with `asyncio.wait_for` using a configurable timeout (default 30 s, set via `LLM_TIMEOUT_SECONDS`). If the LLM hangs, the request fails gracefully with a 502 instead of spinning indefinitely.
+- **Unicode-aware sanitization** — the dirty-text regex uses `\w` (Python 3 Unicode-aware), so accented characters from any script (French, German, Spanish, etc.) are treated as clean text and skip the sanitization LLM call.
 
 ### Project Structure
 
@@ -41,18 +46,19 @@ LangGraph StateGraph          # sanitize (optional) → summarize
 server/app/
 ├── main.py                          # FastAPI app entry point
 ├── pyproject.toml                   # Dependencies and project config
+├── .env.example                     # Environment variable template
 ├── api/
 │   └── summarize_controller.py      # POST /api/summarize/ endpoint
 ├── infrastructure/
 │   ├── config.py                    # Settings (reads from .env)
-│   └── dependencies.py              # DI wiring — builds and caches the service
+│   └── dependencies.py              # DI wiring — reads service from app.state
 ├── services/
 │   └── summarizer/
 │       ├── summarizer_service.py    # SummarizerService ABC + SummarizeWithAgent
 │       └── agent/
 │           └── summarizer_agent.py  # LangGraph agent, factory, OpenAI implementation
 └── tests/
-    ├── conftest.py                  # MockSummarizerAgent, fixtures, dependency overrides
+    ├── conftest.py                  # Mock agents, fixtures, app.state injection
     ├── test_summarize_endpoint.py   # Integration tests for the HTTP layer
     └── test_sanitization.py         # Unit tests for the sanitization heuristic
 ```
@@ -75,11 +81,18 @@ uv sync --group dev
 
 ### Configure environment
 
-Create a `.env` file in `server/app/`:
+Copy the example and add your key:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env`:
 
 ```env
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini   # optional, defaults to gpt-4o-mini
+OPENAI_MODEL=gpt-4o-mini          # optional, defaults to gpt-4o-mini
+LLM_TIMEOUT_SECONDS=30            # optional, defaults to 30
 ```
 
 ---
@@ -126,7 +139,7 @@ curl -X POST http://localhost:8000/api/summarize/ \
 | Status | Reason |
 |---|---|
 | `422` | Empty or whitespace-only text |
-| `502` | LLM call failed |
+| `502` | LLM call failed or timed out |
 
 ---
 
@@ -154,8 +167,9 @@ uv run pytest tests/ -v
 - ✅ Whitespace-only text returns 422
 - ✅ Missing `text` field returns 422
 - ✅ LLM failure returns 502 with error detail
+- ✅ LLM timeout returns 502 with "timed out" detail
 - ✅ Long text (500 words) returns 200
 - ✅ Clean text does not trigger sanitization
 - ✅ HTML tags, entities, URLs trigger sanitization
-- ✅ Non-ASCII characters trigger sanitization
+- ✅ Unicode letters (accented characters) do not trigger sanitization
 

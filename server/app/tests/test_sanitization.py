@@ -1,8 +1,3 @@
-from server.app.tests.conftest import MockSummarizerAgent
-
-# Use the mock agent instance to access the inherited _needs_sanitization method
-agent = MockSummarizerAgent()
-# Patch the method reference directly from the base class
 from server.app.services.summarizer.agent.summarizer_agent import SummarizerAgentOpenAI
 
 
@@ -37,7 +32,29 @@ def test_standard_punctuation_does_not_trigger():
     assert not a._needs_sanitization("Hello! How are you? I'm fine: great.")
 
 
-def test_non_ascii_triggers_sanitization():
+def test_non_ascii_unicode_letters_do_not_trigger_sanitization():
     a = make_agent()
-    assert a._needs_sanitization("Héllo wörld")
+    assert not a._needs_sanitization("Héllo wörld")
+
+
+def test_em_dash_does_not_trigger_sanitization():
+    a = make_agent()
+    # Real prose from a page — em dash should never route to sanitization
+    assert not a._needs_sanitization("Bridger Bowl — community-owned and fiercely independent.")
+
+
+def test_en_dash_does_not_trigger_sanitization():
+    a = make_agent()
+    assert not a._needs_sanitization("Open Monday–Friday, 9am–5pm.")
+
+
+def test_smart_quotes_do_not_trigger_sanitization():
+    a = make_agent()
+    assert not a._needs_sanitization("It\u2019s a \u201cserious\u201d mountain.")
+
+
+def test_ellipsis_does_not_trigger_sanitization():
+    a = make_agent()
+    assert not a._needs_sanitization("More to come\u2026")
+
 

@@ -44,3 +44,8 @@ async def test_summarize_long_text(client: AsyncClient):
     assert response.status_code == 200
     assert "summary" in response.json()
 
+
+async def test_summarize_timeout_returns_502(timeout_client: AsyncClient):
+    response = await timeout_client.post("/api/summarize/", json={"text": "Some valid text"})
+    assert response.status_code == 502
+    assert "timed out" in response.json()["detail"]

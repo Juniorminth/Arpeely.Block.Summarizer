@@ -26,9 +26,28 @@ class SummarizerAgent(ABC):
 		self._llm_model = llm_config
 		self._graph = self._build_graph()
 		
+	# Matches http/https/ftp URLs — checked before the character allowlist
+	_URL_RE = re.compile(r"https?://|ftp://", re.IGNORECASE)
+
+	# Matches characters that suggest HTML/markup or encoded content.
+	# Uses \w (Unicode-aware in Python 3) so accented letters from any
+	# script (French é, German ö, Spanish ñ, etc.) are treated as clean text.
+	# Explicitly allows typographic punctuation common in normal web prose:
+	#   \u2013  en dash       –
+	#   \u2014  em dash       —
+	#   \u2018  left single quote   '
+	#   \u2019  right single quote  '  (also used as apostrophe)
+	#   \u201c  left double quote   "
+	#   \u201d  right double quote  "
+	#   \u2026  ellipsis       …
+	#   /       slash (prose use: "and/or", fractions)
+	#   %       percent
+	_DIRTY_CHARS_RE = re.compile(r"[^\w\s\-\u2013\u2014.,!?''\u2018\u2019\"\u201c\u201d:;()/\u2026%]")
+
 	def _needs_sanitization(self, text: str) -> bool:
-		# Flags non-standard characters that suggest HTML/markup or encoded content
-		return bool(re.search(r"[^a-zA-Z0-9\s\-.,!?'\":;()]", text))
+		if self._URL_RE.search(text):
+			return True
+		return bool(self._DIRTY_CHARS_RE.search(text))
 
 	def _decide_sanitization(self, state: SummarizeState):
 		given_text = state.get("text_to_summarize", None)
@@ -60,11 +79,19 @@ class SummarizerAgent(ABC):
 	
 	async def _summarize_text_node(self, state: SummarizeState):
 		text = state.get("sanitized_text", state.get("text_to_summarize", ""))
-		prompt = f"""You are a text summarization assistant.
-		Your task is to summarize the following text while preserving its original meaning and key information.
-		The summary should be concise, clear, and coherent, capturing the main points and essence of the text without losing important details.
+		if not text:
+			return {"summary": "I'm sorry but I can't summarize an empty text"}
+		prompt = f"""You are a summarization assistant. Your task is to compress the text below into the shortest possible statement that captures its single core idea.
 
-		Text to summarize:
+		Rules:
+		- Output 4 sentences for short inputs, 8 sentences maximum for long ones — never more
+		- DO NOT restate every point; identify the one thing the text is really saying
+		- DO NOT paraphrase sentence by sentence — that is not a summary
+		- No filler openers like "The text discusses..." or "The author states..."
+		- If the input is already short and focused, your summary must be noticeably shorter than the input
+		- Output only the summary, nothing else
+
+		Text:
 		{text}"""
 		result = await self._llm_model.ainvoke(input=[HumanMessage(content=prompt)])
 		return {"summary": result.content}
@@ -91,7 +118,7 @@ class SummarizerAgent(ABC):
 class SummarizerAgentOpenAI(SummarizerAgent):
 
 	def __init__(self, model: str):
-		llm = ChatOpenAI(model=model, temperature=0.1)
+		llm = ChatOpenAI(model=model, temperature=0.1, max_tokens=400)
 		super().__init__(llm)
 
 	async def summarize_text(self, text: str) -> str:

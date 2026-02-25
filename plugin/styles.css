@@ -1,0 +1,179 @@
+/* ── Pick Mode ──────────────────────────────────────────────────────────────── */
+
+body.arpeely-pick-mode,
+body.arpeely-pick-mode * {
+  cursor: crosshair !important;
+}
+
+.arpeely-highlight {
+  outline: 3px solid #4f46e5 !important;
+  outline-offset: 2px !important;
+  background-color: rgba(79, 70, 229, 0.08) !important;
+  border-radius: 4px;
+  transition: outline 0.1s, background-color 0.1s;
+}
+
+/* ── Floating Action Button ─────────────────────────────────────────────────── */
+
+#arpeely-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 2147483646;
+
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+
+  background: #4f46e5;
+  color: #fff;
+  font-size: 22px;
+  font-family: Georgia, serif;
+  font-weight: bold;
+  line-height: 52px;
+  text-align: center;
+
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.5);
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+#arpeely-fab:hover {
+  background: #4338ca;
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.65);
+}
+
+#arpeely-fab:active {
+  transform: scale(0.96);
+}
+
+#arpeely-fab.arpeely-fab--picking {
+  background: #dc2626;
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.5);
+  animation: arpeely-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes arpeely-pulse {
+  0%, 100% { box-shadow: 0 4px 16px rgba(220, 38, 38, 0.5); }
+  50%       { box-shadow: 0 4px 28px rgba(220, 38, 38, 0.85); }
+}
+
+/* ── Spinner ─────────────────────────────────────────────────────────────────── */
+
+#arpeely-sidebar-content .arpeely-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #45475a;
+  border-top-color: #cba6f7;
+  border-radius: 50%;
+  animation: arpeely-spin 0.75s linear infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+#arpeely-sidebar-content .arpeely-spinner-label {
+  vertical-align: middle;
+  color: #a6adc8;
+}
+
+@keyframes arpeely-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Sidebar Overlay ────────────────────────────────────────────────────────── */
+
+#arpeely-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 2147483647;
+
+  width: 360px;
+  max-width: 90vw;
+  height: 100vh;
+
+  background: #1e1e2e;
+  color: #cdd6f4;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+
+  /* Hidden by default — slides in when .arpeely-sidebar--open is added */
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#arpeely-sidebar.arpeely-sidebar--open {
+  transform: translateX(0);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────────── */
+
+#arpeely-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #181825;
+  border-bottom: 1px solid #313244;
+  flex-shrink: 0;
+}
+
+#arpeely-sidebar-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #cba6f7;
+  letter-spacing: 0.02em;
+}
+
+#arpeely-sidebar-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #6c7086;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+#arpeely-sidebar-close:hover {
+  color: #cdd6f4;
+  background: #313244;
+}
+
+/* ── Body ────────────────────────────────────────────────────────────────────── */
+
+#arpeely-sidebar-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 16px;
+}
+
+#arpeely-sidebar-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+#arpeely-sidebar-body::-webkit-scrollbar-track {
+  background: #1e1e2e;
+}
+
+#arpeely-sidebar-body::-webkit-scrollbar-thumb {
+  background: #45475a;
+  border-radius: 3px;
+}
+
+#arpeely-sidebar-content {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+

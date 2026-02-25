@@ -1,8 +1,8 @@
+import asyncio
 import pytest
 from httpx import AsyncClient, ASGITransport
 
 from server.app.main import app
-from server.app.infrastructure.dependencies import get_summarizer_service
 from server.app.services.summarizer.agent.summarizer_agent import SummarizerAgent
 from server.app.services.summarizer.summarizer_service import SummarizerService, SummarizeWithAgent
 
@@ -27,6 +27,17 @@ class FailingSummarizerAgent(SummarizerAgent):
         raise RuntimeError("LLM is down")
 
 
+class SlowSummarizerAgent(SummarizerAgent):
+    """Simulates an LLM that never responds — used to test timeout handling."""
+
+    def __init__(self):
+        pass
+
+    async def summarize_text(self, text: str) -> str:
+        await asyncio.sleep(60)
+        return "should never get here"
+
+
 @pytest.fixture
 def mock_service() -> SummarizerService:
     return SummarizeWithAgent(MockSummarizerAgent())
@@ -38,17 +49,26 @@ def failing_service() -> SummarizerService:
 
 
 @pytest.fixture
+def timeout_service() -> SummarizerService:
+    return SummarizeWithAgent(SlowSummarizerAgent(), timeout=0.1)
+
+
+@pytest.fixture
 async def client(mock_service: SummarizerService):
-    app.dependency_overrides[get_summarizer_service] = lambda: mock_service
+    app.state.summarizer_service = mock_service
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture
 async def failing_client(failing_service: SummarizerService):
-    app.dependency_overrides[get_summarizer_service] = lambda: failing_service
+    app.state.summarizer_service = failing_service
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
-    app.dependency_overrides.clear()
 
+
+@pytest.fixture
+async def timeout_client(timeout_service: SummarizerService):
+    app.state.summarizer_service = timeout_service
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
