@@ -8,7 +8,7 @@ A FastAPI backend that receives web page content and returns a summarized versio
 
 ## Architecture
 
-```
+```text
 POST /api/summarize/
         │
         ▼
@@ -43,7 +43,7 @@ LangGraph StateGraph          # sanitize (optional) → summarize
 
 ### Project Structure
 
-```
+```text
 server/app/
 ├── main.py                          # FastAPI app entry point
 ├── pyproject.toml                   # Dependencies and project config

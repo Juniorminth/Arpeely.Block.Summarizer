@@ -6,7 +6,7 @@ A Manifest V3 Chrome extension that injects a floating **∑** button into every
 
 ## Project structure
 
-```
+```text
 plugin/
 ├── manifest.json   # Extension manifest (MV3)
 ├── config.js       # Server URL & tuning constants  ← edit this to change the target server

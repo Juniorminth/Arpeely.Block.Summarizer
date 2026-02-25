@@ -13,6 +13,9 @@ The project consists of two parts:
 ### 1. Server
 
 ```bash
+# Install uv if you don't have it (https://docs.astral.sh/uv/)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
 cd server/app
 cp .env.example .env          # then add your OPENAI_API_KEY
 uv sync --group dev
